@@ -7,6 +7,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.KINESIS;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
@@ -35,10 +36,12 @@ public class MeasureExternalsMain {
 
     private void runForever() {
         S3BusinessLogic s3 = S3BusinessLogic.create(localstack);
-        KinesisBusinessLogic.create(localstack);
-        SQSBusinessLogic sqs = SQSBusinessLogic.create(localstack);
+        KinesisBusinessLogic kinesis = KinesisBusinessLogic.create(localstack);
+//        SQSBusinessLogic sqs = SQSBusinessLogic.create(localstack);
 
         pool.scheduleAtFixedRate(s3::flushBuffer, 5, 5, SECONDS);
+        pool.scheduleWithFixedDelay(kinesis::generateImportantMessage, 250, 250, MILLISECONDS);
+        pool.scheduleWithFixedDelay(kinesis::receiveData, 1500, 1500, MILLISECONDS);
     }
 
 }

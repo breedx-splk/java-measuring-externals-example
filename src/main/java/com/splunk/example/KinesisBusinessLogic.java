@@ -3,16 +3,21 @@ package com.splunk.example;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
 import software.amazon.awssdk.services.kinesis.model.GetRecordsResponse;
 import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
 import software.amazon.awssdk.services.kinesis.model.PutRecordResponse;
-import software.amazon.awssdk.services.kinesis.model.RegisterStreamConsumerRequest;
+import software.amazon.awssdk.services.kinesis.model.Record;
 import software.amazon.awssdk.services.kinesis.model.SequenceNumberRange;
 import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
+
+import java.util.Date;
+import java.util.List;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.KINESIS;
@@ -51,26 +56,43 @@ public class KinesisBusinessLogic {
         String shardId = description.streamDescription().shards().get(0).shardId();
         SequenceNumberRange sequenceNumberRange = description.streamDescription().shards().get(0).sequenceNumberRange();
         String startingSeq = sequenceNumberRange.startingSequenceNumber();
-
-        PutRecordResponse res = kinesis.putRecord(b -> b.streamName(STREAM_NAME)
-                .partitionKey("0")
-                .data(SdkBytes.fromString("important message in here", UTF_8)));
-        String seq = res.sequenceNumber();
-
-        GetShardIteratorResponse sii = kinesis.getShardIterator(b -> b.streamName(STREAM_NAME)
-                .shardId(shardId)
-                .startingSequenceNumber(startingSeq)
-                .shardIteratorType(ShardIteratorType.AFTER_SEQUENCE_NUMBER));
-        String shardIterator = sii.shardIterator();
-        GetRecordsResponse response = kinesis.getRecords(b -> b.shardIterator(shardIterator));
         return new KinesisBusinessLogic(kinesis, shardId, startingSeq);
     }
 
-    void write(){
-
+    // Generic fake business logic around kinesis
+    public void generateImportantMessage() {
+        System.out.println("write()");
+        write("very important message: " + new Date());
     }
 
-    void read(){
+    private void write(String message){
+        try {
+            PutRecordResponse res = kinesis.putRecord(b -> b.streamName(STREAM_NAME)
+                    .partitionKey("0")
+                    .data(SdkBytes.fromString(message, UTF_8)));
+//            String seq = res.sequenceNumber();
+        } catch (Exception e) {
+            System.out.println("Error writing to kinesis: " + e.getMessage());
+        }
+    }
 
+    // Generic kinesis business logic
+    public void receiveData() {
+        List<Record> records = read();
+        System.out.println("Received " + records.size());
+        records.forEach(rec -> {
+            //TODO: Do something with the record.
+            sequence = rec.sequenceNumber(); // Update our sequence for next read
+        });
+
+    }
+    private List<Record> read(){
+        GetShardIteratorResponse sii = kinesis.getShardIterator(b -> b.streamName(STREAM_NAME)
+                .shardId(shardId)
+                .startingSequenceNumber(sequence)
+                .shardIteratorType(ShardIteratorType.AFTER_SEQUENCE_NUMBER));
+        String shardIterator = sii.shardIterator();
+        GetRecordsResponse response = kinesis.getRecords(b -> b.shardIterator(shardIterator));
+        return response.records();
     }
 }
