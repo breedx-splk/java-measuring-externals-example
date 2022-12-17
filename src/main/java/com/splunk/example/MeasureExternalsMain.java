@@ -36,8 +36,11 @@ public class MeasureExternalsMain {
 
     private void runForever() {
         S3BusinessLogic s3 = S3BusinessLogic.create(localstack);
-        KinesisBusinessLogic kinesis = KinesisBusinessLogic.create(localstack);
-//        SQSBusinessLogic sqs = SQSBusinessLogic.create(localstack);
+        SQSBusinessLogic sqs = SQSBusinessLogic.create(localstack);
+        KinesisBusinessLogic kinesis = KinesisBusinessLogic.create(localstack, message -> {
+            s3.buffer(message);
+            sqs.maybeExfiltrate(message);
+        });
 
         pool.scheduleAtFixedRate(s3::flushBuffer, 5, 5, SECONDS);
         pool.scheduleWithFixedDelay(kinesis::generateImportantMessage, 250, 250, MILLISECONDS);

@@ -66,7 +66,7 @@ public class S3BusinessLogic {
         RequestBody body = RequestBody.fromString(bufferContent);
         try {
             s3.putObject(b -> b.bucket(getBucketName()).key(key), body);
-            System.out.println("S3 flush complete.");
+            System.out.println("S3 flush complete (" + list.size() + " records).");
         } catch (AwsServiceException | SdkClientException e) {
             System.err.println("Error flushing to s3: " + e.getMessage());
         }

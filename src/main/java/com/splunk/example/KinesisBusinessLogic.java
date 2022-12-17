@@ -3,9 +3,7 @@ package com.splunk.example;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.kinesis.KinesisClient;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
@@ -18,6 +16,7 @@ import software.amazon.awssdk.services.kinesis.model.ShardIteratorType;
 
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.KINESIS;
@@ -27,15 +26,17 @@ public class KinesisBusinessLogic {
     public static final String STREAM_NAME = "data-is-flowing";
     private final KinesisClient kinesis;
     private final String shardId;
+    private final Consumer<String> messageConsumer;
     private String sequence;
 
-    public KinesisBusinessLogic(KinesisClient kinesis, String shardId, String startingSequenceNum) {
+    public KinesisBusinessLogic(KinesisClient kinesis, String shardId, String startingSequenceNum, Consumer<String> messageConsumer) {
         this.kinesis = kinesis;
         this.shardId = shardId;
         this.sequence = startingSequenceNum;
+        this.messageConsumer = messageConsumer;
     }
 
-    static KinesisBusinessLogic create(LocalStackContainer localstack){
+    static KinesisBusinessLogic create(LocalStackContainer localstack, Consumer<String> messageConsumer){
 //        KinesisAsyncClient kinesis = KinesisAsyncClient.builder()
         KinesisClient kinesis = KinesisClient.builder()
                 .endpointOverride(localstack.getEndpointOverride(KINESIS))
@@ -56,17 +57,17 @@ public class KinesisBusinessLogic {
         String shardId = description.streamDescription().shards().get(0).shardId();
         SequenceNumberRange sequenceNumberRange = description.streamDescription().shards().get(0).sequenceNumberRange();
         String startingSeq = sequenceNumberRange.startingSequenceNumber();
-        return new KinesisBusinessLogic(kinesis, shardId, startingSeq);
+        return new KinesisBusinessLogic(kinesis, shardId, startingSeq, messageConsumer);
     }
 
     // Generic fake business logic around kinesis
     public void generateImportantMessage() {
-        System.out.println("write()");
         write("very important message: " + new Date());
     }
 
     private void write(String message){
         try {
+            System.out.println("Kinesis putRecord()");
             PutRecordResponse res = kinesis.putRecord(b -> b.streamName(STREAM_NAME)
                     .partitionKey("0")
                     .data(SdkBytes.fromString(message, UTF_8)));
@@ -79,10 +80,10 @@ public class KinesisBusinessLogic {
     // Generic kinesis business logic
     public void receiveData() {
         List<Record> records = read();
-        System.out.println("Received " + records.size());
+        System.out.println("Kinesis: read records (" + records.size() + ")");
         records.forEach(rec -> {
-            //TODO: Do something with the record.
             sequence = rec.sequenceNumber(); // Update our sequence for next read
+            messageConsumer.accept(sequence + " " + new String(rec.data().asByteArray()));
         });
 
     }
