@@ -34,6 +34,9 @@ detects the AWS sdk and automatically instruments the client calls.
 From that instrumentation, we get spans generated for the AWS service
 calls and the APM service explorer shows them as _inferred services_.
 
+<img width="376" alt="image" src="https://user-images.githubusercontent.com/75337021/208213533-8a39b948-91b0-489c-8b47-0b9808c7f9cc.png">
+
+
 # What About Metrics
 
 What do we already get?
