@@ -46,6 +46,8 @@ They are not generated from client instrumentation.
 Furthermore, if we dip into Tag Spotlight we can see some metrics derived
 from common endpoints:
 
+<img width="758" alt="image" src="https://user-images.githubusercontent.com/75337021/208214690-7e0c0a7b-cba3-42e3-a296-34bf7b08d896.png">
+
 
 # What Else Do We Want?
 
